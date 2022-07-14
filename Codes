@@ -1,0 +1,877 @@
+PRE PROCESSING
+
+# pre-processing
+# imports
+import numpy as np
+import pandas as pd
+import nltk
+import re
+import texthero as texthero
+from texthero import preprocessing
+import string
+
+pd.options.mode.chained_assignment = None
+
+# load dataset
+data = pd.read_csv("fake.csv", skipinitialspace=True)
+custom_pipeline = [
+    preprocessing.fillna,
+    preprocessing.lowercase,
+    preprocessing.remove_punctuation,
+
+    preprocessing.remove_digits,
+]
+
+data["text"] = data["text"].astype(str)
+data["text"] = data["text"].pipe(texthero.clean, custom_pipeline)
+
+
+def remove_html(text):
+    html_pattern = re.compile("<.*?>")
+    return html_pattern.sub(r"", text)
+
+
+def cleaning(text):
+    text = re.sub("\n", "", str(text))
+    text = re.sub("\n ", "", str(text))
+    return text
+
+
+data["text"] = data["text"].apply(lambda text: remove_html(text))
+data["text"] = data["text"].apply(lambda text: cleaning(text))
+data["text"] = data["text"].str.strip()
+print(data.head())
+
+data.to_csv("fakeprep.csv", index="False")
+
+
+
+
+COLLECTING NEIGHBOURS
+
+# this file will identify instances of woman/men entities and collect the neighbours of a chosen window size
+
+import csv
+import nltk
+from nltk.tokenize import RegexpTokenizer
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from tqdm import tqdm
+import pandas as pd
+
+# remove stop words from the dataset
+def remove_stop_words(file):
+    file = [word for word in file if not word in stopwords.words()]
+    return file
+
+
+# search for a woman identifier and collect the neighbours of a given windowsize
+def searching(contents, windowsize, words, neighbours):
+    for content in tqdm(contents):
+        for word in words:
+            if word in content:
+                num = content.index(word)
+                neighbours.append(
+                    content[(num - windowsize) : num + 1]
+                    + content[num + 1 : (num + 1 + windowsize)]
+                )
+    return neighbours
+
+
+def main():
+
+    words=[]
+    p_contents=[]
+    politi_contents=[]
+    politi_neighbours=[]
+    subject=[]
+    text=[]
+
+
+
+  # read in the male/female lexicon
+    female = open("female.txt", newline="")
+    for line in female:
+        stripped_line = line.strip()
+        stripped_line = stripped_line.lower()
+        words.append(stripped_line)
+
+    # read in article contents
+    with open("fakeprep.csv", "r",encoding = 'unicode_escape') as csv_file:
+        csv_reader = csv.DictReader(csv_file, delimiter=",")
+        for row in csv_reader:
+            subject.append(row["subject"])
+            text.append(row["text"])
+
+
+
+    for idx, subject in enumerate(subject):
+        if subject == "News":
+            politi_contents = word_tokenize(text[idx])
+            politi_contents = remove_stop_words(politi_contents)
+            p_contents.append(politi_contents)
+
+    politi_neighbours = searching(p_contents, 10, words, politi_neighbours)
+
+    cols = [
+        "word1",
+        "word2",
+        "word3",
+        "word4",
+        "word5",
+        "word6",
+        "word7",
+        "word8",
+        "word9",
+        "word10",
+        "identifier",
+        "word11",
+        "word12",
+        "word13",
+        "word14",
+        "word15",
+        "word16",
+        "word17",
+        "word18",
+        "word19",
+        "word20",
+    ]
+
+    politi_df = pd.DataFrame(politi_neighbours, columns=cols)
+    politi_df.to_csv("collectiveFemaleNeighboursNews.csv", index=False)
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+
+SLICING WINDOW SIZE WISE
+
+# this script was implemented to filter the neighbours data based on size in order to create versions between a window size of 5 and 10
+# done so to enhance interactivity for the user
+
+import pandas as pd
+from nltk.sentiment.vader import SentimentIntensityAnalyzer as SIA
+
+# based on user input, filter the neighbours data to the appropriate window size
+def alter(value, df):
+    if value == 5:
+        data = df[
+            [
+                "word6",
+                "word7",
+                "word8",
+                "word9",
+                "word10",
+                "word11",
+                "word12",
+                "word13",
+                "word14",
+                "word15",
+            ]
+        ]
+    if value == 6:
+        data = df[
+            [
+                "word5",
+                "word6",
+                "word7",
+                "word8",
+                "word9",
+                "word10",
+                "word11",
+                "word12",
+                "word13",
+                "word14",
+                "word15",
+                "word16",
+            ]
+        ]
+    elif value == 7:
+        data = df[
+            [
+                "word4",
+                "word5",
+                "word6",
+                "word7",
+                "word8",
+                "word9",
+                "word10",
+                "word11",
+                "word12",
+                "word13",
+                "word14",
+                "word15",
+                "word16",
+                "word17",
+            ]
+        ]
+    elif value == 8:
+        data = df[
+            [
+                "word3",
+                "word4",
+                "word5",
+                "word6",
+                "word7",
+                "word8",
+                "word9",
+                "word10",
+                "word11",
+                "word12",
+                "word13",
+                "word14",
+                "word15",
+                "word16",
+                "word17",
+                "word18",
+            ]
+        ]
+    elif value == 9:
+        data = df[
+            [
+                "word2",
+                "word3",
+                "word4",
+                "word5",
+                "word6",
+                "word7",
+                "word8",
+                "word9",
+                "word10",
+                "word11",
+                "word12",
+                "word13",
+                "word14",
+                "word15",
+                "word16",
+                "word17",
+                "word18",
+                "word19",
+            ]
+        ]
+    elif value == 10:
+        data = df
+    print("Data:", data)
+    return data
+
+
+
+def main():
+    # filter female neighbours
+    Neighbours = pd.read_csv("CollectiveFemaleNeighbourNews.csv")
+
+    Neighbours5 = alter(5, Neighbours)
+    Neighbours6 = alter(6, Neighbours)
+    Neighbours7 = alter(7, Neighbours)
+    Neighbours8 = alter(8, Neighbours)
+    Neighbours9 = alter(9, Neighbours)
+    Neighbours10 = alter(10, Neighbours)
+
+    Neighbours5.to_csv("FemaleNeighboursNews5.csv",index=False)
+    Neighbours6.to_csv("FemaleNeighboursNews6.csv",index=False)
+    Neighbours7.to_csv("FemaleNeighboursNews7.csv", index=False)
+    Neighbours8.to_csv("FemaleNeighboursNews8.csv",index=False)
+    Neighbours9.to_csv("FemaleNeighboursNews9.csv", index=False)
+    Neighbours10.to_csv("FemaleNeighboursNews10.csv", index=False)
+
+
+
+if __name__ == "__main__":
+    main()
+
+
+WINDOWSIZE WISE TOTAL COUNT EMOTIONAL WORDS AND EMOTIONAL WORDS
+
+# this script is used to search through the collected neighbours and identify political and emotional words
+# has been updated to perform this search for neighbours with window size 5-10
+import csv
+import pandas as pd
+
+emotions = []
+leftlist = []
+leftcenterlist = []
+centerlist = []
+rightcenterlist = []
+rightlist = []
+
+
+file = open("emotions.txt", newline="")
+for line in file:
+    stripped_line = line.strip()
+    stripped_line = stripped_line.lower()
+    emotions.append(stripped_line)
+
+
+def EmotionalCount(contents, emwords):
+    emfound = []
+    emcount = 0
+    for content in contents:
+        for con in content:
+            for em in emwords:
+                if em == con:
+                    emfound.append(em)
+                    emcount += 1
+    return emfound, emcount
+
+def createList(frame):
+    words = []
+    word = str(frame)
+    words.append(str)
+    return words
+
+def main():
+
+    # read csvs
+    Neighbours1 = pd.read_csv(
+        "FemaleNeighboursNewsEmotionTrue5.csv", usecols=[i for i in range(1, 12)]
+    )
+    Neighbours2 = pd.read_csv(
+        "FemaleNeighboursNewsEmotionTrue6.csv", usecols=[i for i in range(1, 14)]
+    )
+    Neighbours3 = pd.read_csv(
+        "FemaleNeighboursNewsEmotionTrue7.csv", usecols=[i for i in range(1, 16)]
+    )
+    Neighbours4 = pd.read_csv(
+        "FemaleNeighboursNewsEmotionTrue8.csv", usecols=[i for i in range(1, 18)]
+    )
+    Neighbours5 = pd.read_csv(
+        "FemaleNeighboursNewsEmotionTrue9.csv", usecols=[i for i in range(1, 20)]
+    )
+    Neighbours6 = pd.read_csv(
+        "FemaleNeighboursNewsEmotionTrue10.csv", usecols=[i for i in range(1, 22)]
+    )
+
+
+
+
+    F1 = Neighbours1.values.tolist()
+    F2 = Neighbours2.values.tolist()
+    F3 = Neighbours3.values.tolist()
+    F4 = Neighbours4.values.tolist()
+    F5 = Neighbours5.values.tolist()
+    F6 = Neighbours6.values.tolist()
+
+
+
+    F1emfound, F1emcount = EmotionalCount(F1, emotions)
+    F2emfound, F2emcount = EmotionalCount(F2, emotions)
+    F3emfound, F3emcount = EmotionalCount(F3, emotions)
+    F4emfound, F4emcount = EmotionalCount(F4, emotions)
+    F5emfound, F5emcount = EmotionalCount(F5, emotions)
+    F6emfound, F6emcount = EmotionalCount(F6, emotions)
+
+
+    # create individual dataframes
+    windowSize1 = pd.DataFrame(list(zip(F1emfound)),columns=["Female Emotional"],)
+    windowSize1["Window Size"] = "5"
+
+    windowSize2 = pd.DataFrame(list(zip(F2emfound)),columns=["Female Emotional"],)
+    windowSize2["Window Size"] = "6"
+
+    windowSize3 = pd.DataFrame(list(zip(F3emfound)),columns=["Female Emotional"],)
+    windowSize3["Window Size"] = "7"
+
+    windowSize4 = pd.DataFrame(list(zip(F4emfound)),columns=["Female Emotional"],)
+    windowSize4["Window Size"] = "8"
+
+    windowSize5 = pd.DataFrame(list(zip(F5emfound)),columns=["Female Emotional"],)
+    windowSize5["Window Size"] = "9"
+
+    windowSize6 = pd.DataFrame(list(zip(F6emfound)), columns=["Female Emotional"], )
+    windowSize6["Window Size"] = "10"
+
+
+    counts = pd.DataFrame(
+        columns=["Female Emotional","Window Size",])
+
+    counts.loc[0] = [F1emcount, "5"]
+    counts.loc[1] = [F2emcount,  "6"]
+    counts.loc[2] = [F3emcount, "7"]
+    counts.loc[3] = [F4emcount, "8"]
+    counts.loc[4] = [F5emcount,  "9"]
+    counts.loc[5] = [F6emcount,  "10"]
+
+    combined = pd.concat(
+        [windowSize1, windowSize2, windowSize3, windowSize4, windowSize5, windowSize6],
+        axis=0,
+    )
+    print("-------Neighbours Dataframe-------")
+    print(combined)
+    combined.to_csv("allFemaleWordsNewsTrue.csv",index=False)
+
+    counts.to_csv("FemaleCountsNewsTrue.csv")
+    print("-------Counts------")
+    print("-------Neighbour Size 10-------")
+    print("Left Emotional references: ", F6emcount)
+
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+COMMON WORDS
+
+# this script is used to find the most common words associated with emotional / political topics in left and right media
+# uses the output of the politicalEmotional script
+
+from collections import Counter
+import csv
+import pandas as pd
+
+affiliation = []
+word = []
+count = []
+
+# identify the most common political/emotional words
+def topWords(emotional, number):
+    EmotionalCounter = Counter(emotional)
+    topEmotional = EmotionalCounter.most_common(number)
+    return topEmotional
+
+
+# create the lists to add to a dataframe
+def dataframe(affil, string, word, count, windowSize, winSize):
+    for i in affil:
+        windowSize.append(winSize)
+        word.append(i[0])
+        count.append(i[1])
+    return word, count
+
+
+def main():
+    fleftPolitical = []
+    fleftEmotional = []
+    frightPolitical = []
+    frightEmotional = []
+    fAffiliation = []
+    fWord = []
+    fCount = []
+    windowSize = []
+    mleftPolitical = []
+    mleftEmotional = []
+    mrightPolitical = []
+    mrightEmotional = []
+    mAffiliation = []
+    mWord = []
+    mCount = []
+
+    # filter data by window size
+    female = pd.read_csv("allMaleWordsNews.csv")
+    window1 = female[female["Window Size"] == 5]
+    window2 = female[female["Window Size"] == 6]
+    window3 = female[female["Window Size"] == 7]
+    window4 = female[female["Window Size"] == 8]
+    window5 = female[female["Window Size"] == 9]
+    window6 = female[female["Window Size"] == 10]
+
+    # convert columns into lists
+    E1 = window1["Male Emotional"].values.tolist()
+    E2 = window2["Male Emotional"].values.tolist()
+    E3 = window3["Male Emotional"].values.tolist()
+    E4 = window4["Male Emotional"].values.tolist()
+    E5 = window5["Male Emotional"].values.tolist()
+    E6 = window6["Male Emotional"].values.tolist()
+
+
+    # find top words
+    lE1 = topWords(E1, 10)
+    lE2 = topWords(E2, 10)
+    lE3 = topWords(E3, 10)
+    lE4 = topWords(E4, 10)
+    lE5 = topWords(E5, 10)
+    lE6 = topWords(E6, 10)
+
+    # convert into dataframe
+    dataframe(lE1, "Emotional", fWord, fCount, windowSize, "5")
+    dataframe(lE2, "Emotional", fWord, fCount, windowSize, "6")
+    dataframe(lE3, "Emotional", fWord, fCount, windowSize, "7")
+    dataframe(lE4, "Emotional", fWord, fCount, windowSize, "8")
+    dataframe(lE5, "Emotional", fWord, fCount, windowSize, "9")
+    dataframe(lE6, "Emotional", fWord, fCount, windowSize, "10")
+
+
+    # write to csv
+    df = pd.DataFrame(
+        list(zip(fWord, fCount, windowSize)),
+        columns=["Word", "Count", "Window Size"],
+    )
+    print(df)
+    df.to_csv("MaleTopWordsNews.csv",index=False)
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+
+COMPOSITION OF EMOTIONAL WORDS
+
+# this script is used to analyse the emotional composition of the words collected
+
+import pandas as pd
+import csv
+import string
+import re
+from nrclex import NRCLex
+
+# read file
+def open(filename, words):
+    for word in filename:
+        word = str(word)
+        words.append(word)
+    return words
+
+
+# use NRC to establish the top emotions allocated with each word
+def getScores(words, scores):
+    for i in range(len(words)):
+        emotion = NRCLex(words[i])
+        scores.append(emotion.top_emotions)
+    return scores
+
+
+# create dataframe from the scores
+def frame(scores):
+    df = pd.DataFrame(
+        scores, columns=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+    )
+    return df
+
+
+# extract the scores, that are currently in format (emotion : score) into two separate lists
+def split(dataframe):
+    emotion = []
+    score = []
+    cols = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+    for col in cols:
+        d = dataframe[col]
+        for i in d:
+            if pd.notna(i):
+                i = str(i)
+                i = i.replace("(", "").replace(")", "").replace("'", "")
+                list = i.split(",")
+                t = tuple(list)
+                emotion.append(t[0])
+                score.append(t[1])
+    return emotion, score
+
+
+# sort the scores into each individual emotion in order to get a total overall score
+def sortEmotions(emotion, score):
+    negative = []
+    positive = []
+    anger = []
+    anticipation = []
+    disgust = []
+    fear = []
+    joy = []
+    sadness = []
+    surprise = []
+    trust = []
+
+    for index, elem in enumerate(emotion):
+        if elem == "negative":
+            negative.append(score[index])
+        elif elem == "positive":
+            positive.append(score[index])
+        elif elem == "anger":
+            anger.append(score[index])
+        elif elem == "anticipation":
+            anticipation.append(score[index])
+        elif elem == "disgust":
+            disgust.append(score[index])
+        elif elem == "fear":
+            fear.append(score[index])
+        elif elem == "joy":
+            joy.append(score[index])
+        elif elem == "sadness":
+            sadness.append(score[index])
+        elif elem == "surprise":
+            surprise.append(score[index])
+        elif elem == "trust":
+            trust.append(score[index])
+
+    negativeScore = sum(map(float, negative))
+    positiveScore = sum(map(float, positive))
+    angerScore = sum(map(float, anger))
+    anticipationScore = sum(map(float, anticipation))
+    disgustScore = sum(map(float, disgust))
+    fearScore = sum(map(float, fear))
+    joyScore = sum(map(float, joy))
+    sadnessScore = sum(map(float, sadness))
+    surpriseScore = sum(map(float, surprise))
+    trustScore = sum(map(float, trust))
+    data = [
+        negativeScore,
+        positiveScore,
+        angerScore,
+        anticipationScore,
+        disgustScore,
+        fearScore,
+        joyScore,
+        sadnessScore,
+        surpriseScore,
+        trustScore,
+    ]
+    return data
+
+
+def main():
+    leftWords1 = []
+    rightWords1 = []
+    leftScores1 = []
+    rightScores1 = []
+    leftWords2 = []
+    rightWords2 = []
+    leftScores2 = []
+    rightScores2 = []
+    leftWords3 = []
+    rightWords3 = []
+    leftScores3 = []
+    rightScores3 = []
+    leftWords4 = []
+    rightWords4 = []
+    leftScores4 = []
+    rightScores4 = []
+    leftWords5 = []
+    rightWords5 = []
+    leftScores5 = []
+    rightScores5 = []
+    leftWords6 = []
+    rightWords6 = []
+    leftScores6 = []
+    rightScores6 = []
+
+    df = pd.read_csv("allMaleWordsNews.csv")
+
+    window1 = df[df["Window Size"] == 5]
+    window2 = df[df["Window Size"] == 6]
+    window3 = df[df["Window Size"] == 7]
+    window4 = df[df["Window Size"] == 8]
+    window5 = df[df["Window Size"] == 9]
+    window6 = df[df["Window Size"] == 10]
+
+    leftEmotion1 = window1["Male Emotional"]
+    leftEmotion2 = window2["Male Emotional"]
+    leftEmotion3 = window3["Male Emotional"]
+    leftEmotion4 = window4["Male Emotional"]
+    leftEmotion5 = window5["Male Emotional"]
+    leftEmotion6 = window6["Male Emotional"]
+
+
+    leftWords1 = open(leftEmotion1, leftWords1)
+    leftWords2 = open(leftEmotion2, leftWords2)
+    leftWords3 = open(leftEmotion3, leftWords3)
+    leftWords4 = open(leftEmotion4, leftWords4)
+    leftWords5 = open(leftEmotion5, leftWords5)
+    leftWords6 = open(leftEmotion6, leftWords6)
+
+
+    leftScores1 = getScores(leftWords1, leftScores1)
+    leftScores2 = getScores(leftWords2, leftScores2)
+    leftScores3 = getScores(leftWords3, leftScores3)
+    leftScores4 = getScores(leftWords4, leftScores4)
+    leftScores5 = getScores(leftWords5, leftScores5)
+    leftScores6 = getScores(leftWords6, leftScores6)
+
+
+    #print(leftScores)
+    # print(rightScores)
+
+    leftFrame1 = frame(leftScores1)
+    leftFrame2 = frame(leftScores2)
+    leftFrame3 = frame(leftScores3)
+    leftFrame4 = frame(leftScores4)
+    leftFrame5 = frame(leftScores5)
+    leftFrame6 = frame(leftScores6)
+
+
+    leftEmo1, leftSc1 = split(leftFrame1)
+    leftEmo2, leftSc2 = split(leftFrame2)
+    leftEmo3, leftSc3 = split(leftFrame3)
+    leftEmo4, leftSc4 = split(leftFrame4)
+    leftEmo5, leftSc5 = split(leftFrame5)
+    leftEmo6, leftSc6 = split(leftFrame6)
+
+
+    leftData1 = sortEmotions(leftEmo1, leftSc1)
+    leftData2 = sortEmotions(leftEmo2, leftSc2)
+    leftData3 = sortEmotions(leftEmo3, leftSc3)
+    leftData4 = sortEmotions(leftEmo4, leftSc4)
+    leftData5 = sortEmotions(leftEmo5, leftSc5)
+    leftData6 = sortEmotions(leftEmo6, leftSc6)
+
+
+    # write the results into a dataframe for further use
+    new = pd.DataFrame(
+        columns=[
+            "Negative",
+            "Positive",
+            "Anger",
+            "Anticipation",
+            "Disgust",
+            "Fear",
+            "Joy",
+            "Sadness",
+            "Surprise",
+            "Trust",
+        ]
+    )
+    new.loc[0] = leftData1
+    new.loc[1] = leftData2
+    new.loc[2] = leftData3
+    new.loc[3] = leftData4
+    new.loc[4] = leftData5
+    new.loc[5] = leftData6
+    new["Window Size"] = ["5", "6", "7", "8",  "9",  "10"]
+    print(new)
+    new.to_csv("MaleEmotionalCompositionNews.csv",index=False)
+
+
+if __name__ == "__main__":
+    main()
+
+
+WINDOW SIZE WISE EMOTION CALCULATE 
+
+
+import pandas as pd
+from nltk.sentiment.vader import SentimentIntensityAnalyzer as SIA
+
+
+
+
+def sentAnalysis(sentence):
+    sentence = str(sentence)
+    sid = SIA()
+    sc = sid.polarity_scores(sentence)["compound"]
+    sp = sid.polarity_scores(sentence)["pos"]
+    sn = sid.polarity_scores(sentence)["neg"]
+    sne = sid.polarity_scores(sentence)["neu"]
+    return pd.Series((sc, sp, sn, sne))
+
+
+# gather positive, negative and neutral frequency
+def posNeg(dataframe):
+    if dataframe["compound"] == 0.0:
+        dataframe["sentiment"] = "Neutral"
+    elif dataframe["compound"] > 0.0:
+        dataframe["sentiment"] = "Positive"
+    else:
+        dataframe["sentiment"] = "Negative"
+    return dataframe["sentiment"]
+
+
+
+def calculate(dataf, csvName):
+    dataf[["compound", "pos", "neg", "neu"]] = dataf.apply(
+        lambda x: sentAnalysis(x), axis=1
+    )
+    decimals = 1
+    dataf["compound"] = dataf["compound"].apply(lambda x: round(x, decimals))
+    z = dataf["compound"].value_counts()
+    z1 = z.to_dict()
+    dataf["frequency"] = dataf["compound"].map(z1)
+    dataf["sentiment"] = dataf.apply(lambda x: posNeg(x), axis=1)
+    dataf.to_csv(csvName, index=False)
+    Average = dataf["compound"].mean()
+    print("Average: ", Average)
+
+
+def main():
+    # filter female neighbours
+    NeighboursNews6 = pd.read_csv("NeighboursNews6.csv")
+    calculate(NeighboursNews6, "NeighboursNewsEmotion6.csv")
+    
+    NeighboursNews7 = pd.read_csv("NeighboursNews7.csv")
+    calculate(NeighboursNews7, "NeighboursNewsEmotion7.csv")
+    
+    NeighboursNews8 = pd.read_csv("NeighboursNews8.csv")
+    calculate(NeighboursNews8, "NeighboursNewsEmotion8.csv")
+    
+    NeighboursNews9 = pd.read_csv("NeighboursNews9.csv")
+    calculate(NeighboursNews9, "NeighboursNewsEmotion9.csv")
+    
+    NeighboursNews10 = pd.read_csv("NeighboursNews10.csv")
+    calculate(NeighboursNews10, "NeighboursNewsEmotion10.csv")
+
+if __name__ == "__main__":
+    main()
+
+LINE BY LINE TO LIST
+
+file = open("emotions.txt", newline="")
+for line in file:
+    stripped_line = line.strip()
+    stripped_line = stripped_line.lower()
+    emotions.append(stripped_line)
+
+EMOTIONAL COUNT TOTAL - NEG,POS,NEU
+
+import pandas as pd
+
+
+def open(filename, words):
+    for word in filename:
+        word = str(word)
+        words.append(word)
+    return words
+
+def EmotionalCount(contents):
+    emcount = 0
+    for content in contents:
+                if em == con:
+                    emcount += 1
+    return emcount
+
+# gather positive, negative and neutral frequency
+def posNeg(dataframe):
+    negative=0
+    positive=0
+    neutral=0
+    sentiment=dataframe.sentiment
+    for elem in sentiment:
+        if elem == "Negative":
+            negative=negative+1
+        elif elem == "Positive":
+            positive=positive+1
+        elif elem == "Neutral":
+            neutral=positive+1
+    return [negative,positive,neutral]
+
+
+word=[]
+
+
+
+Neighbour1=pd.read_csv("NeighboursNewsEmotionFemale5.csv")
+Neighbour2=pd.read_csv("NeighboursNewsEmotionFemale6.csv")
+Neighbour3=pd.read_csv("NeighboursNewsEmotionFemale7.csv")
+Neighbour4=pd.read_csv("NeighboursNewsEmotionFemale8.csv")
+Neighbour5=pd.read_csv("NeighboursNewsEmotionFemale9.csv")
+Neighbour6=pd.read_csv("NeighboursNewsEmotionFemale10.csv")
+
+
+Window5= pd.DataFrame(posNeg(Neighbour1))
+Window6= pd.DataFrame(posNeg(Neighbour2))
+Window7= pd.DataFrame(posNeg(Neighbour3))
+Window8= pd.DataFrame(posNeg(Neighbour4))
+Window9= pd.DataFrame(posNeg(Neighbour5))
+Window10= pd.DataFrame(posNeg(Neighbour6))
+
+
+
+
+
+#counts=pd.DataFrame(columns=["Positive","Negetive","Neutral","Window Size",])
+#counts(columns=["5","6","7","8","9","10"])
+counts=pd.concat([Window5,Window6,Window7,Window8,Window9,Window10],axis=1)
+counts
+counts.to_csv("FemaleEmotionalCountNews.csv",index=False)
+
